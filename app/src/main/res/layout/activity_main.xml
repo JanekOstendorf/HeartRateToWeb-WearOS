@@ -8,17 +8,55 @@
     tools:context=".MainActivity"
     tools:deviceIds="wear">
 
-    <FrameLayout
+    <ScrollView
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:padding="@dimen/inner_frame_layout_padding"
+        android:focusable="true"
+        android:focusableInTouchMode="true"
+        android:focusedByDefault="true"
         app:layout_boxedEdges="all">
 
-        <TextView
-            android:id="@+id/text"
-            android:layout_width="wrap_content"
+        <LinearLayout
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="@string/hello_world" />
+            android:orientation="vertical">
 
-    </FrameLayout>
+            <Button
+                android:id="@+id/buttonStartStop"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/button_start" />
+
+            <TextView
+                android:id="@+id/textViewHeartRate"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="23dp" />
+
+            <EditText
+                android:id="@+id/editTextHostname"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:ems="10"
+                android:hint="@string/text_hostname"
+                android:importantForAutofill="no"
+                android:inputType="textUri" />
+
+            <EditText
+                android:id="@+id/editTextPort"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:ems="10"
+                android:hint="@string/text_port"
+                android:importantForAutofill="no"
+                android:inputType="number"
+                android:minHeight="48dp" />
+
+        </LinearLayout>
+    </ScrollView>
+
+    <requestFocus
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content" />
+
 </androidx.wear.widget.BoxInsetLayout>
