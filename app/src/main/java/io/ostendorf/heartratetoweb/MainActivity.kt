@@ -15,7 +15,6 @@ import android.widget.Button
 import android.widget.EditText
 import android.widget.TextView
 import androidx.core.app.ActivityCompat
-import androidx.core.widget.addTextChangedListener
 import androidx.core.widget.doAfterTextChanged
 import com.android.volley.RequestQueue
 import com.android.volley.request.StringRequest
@@ -23,7 +22,7 @@ import com.android.volley.toolbox.Volley
 import io.ostendorf.heartratetoweb.databinding.ActivityMainBinding
 import kotlin.math.roundToInt
 
-class MainActivity : Activity(), SensorEventListener {
+class MainActivity : Activity() {
 
     object Config {
         const val CONF_HTTP_HOSTNAME = "HTTP_HOSTNAME"
@@ -34,13 +33,9 @@ class MainActivity : Activity(), SensorEventListener {
     }
 
     private lateinit var binding: ActivityMainBinding
-    private lateinit var mSensorManager: SensorManager
-    private lateinit var mHeartRateSensor: Sensor
-    private lateinit var textCurrentHr: TextView
+    //private lateinit var textCurrentHr: TextView
 
-    private lateinit var httpQueue: RequestQueue
-
-    private lateinit var sharedPreferences: SharedPreferences
+    private lateinit var preferences: SharedPreferences
 
     private var runningState: RunningState = RunningState.STOPPED
 
@@ -50,15 +45,10 @@ class MainActivity : Activity(), SensorEventListener {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        textCurrentHr = findViewById(R.id.textViewHeartRate)
-
-        mSensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
-        mHeartRateSensor = mSensorManager.getDefaultSensor(Sensor.TYPE_HEART_RATE)
-
         initConfig()
         bindConfigToInputs()
 
-        textCurrentHr.text = resources.getString(R.string.text_current_hr, 0)
+        //textCurrentHr.text = resources.getString(R.string.text_current_hr, 0)
 
         if (ActivityCompat.checkSelfPermission(
                 this,
@@ -67,8 +57,6 @@ class MainActivity : Activity(), SensorEventListener {
         ) {
             ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.BODY_SENSORS), 100)
         }
-
-        httpQueue = Volley.newRequestQueue(this)
 
         wireButton()
 
@@ -94,11 +82,11 @@ class MainActivity : Activity(), SensorEventListener {
         val hostnameInput = findViewById<EditText>(R.id.editTextHostname)
         val portInput = findViewById<EditText>(R.id.editTextPort)
 
-        hostnameInput.setText(sharedPreferences.getString(Config.CONF_HTTP_HOSTNAME, Config.CONF_HTTP_HOSTNAME_DEFAULT))
-        portInput.setText(sharedPreferences.getInt(Config.CONF_HTTP_PORT, Config.CONF_HTTP_PORT_DEFAULT).toString())
+        hostnameInput.setText(preferences.getString(Config.CONF_HTTP_HOSTNAME, Config.CONF_HTTP_HOSTNAME_DEFAULT))
+        portInput.setText(preferences.getInt(Config.CONF_HTTP_PORT, Config.CONF_HTTP_PORT_DEFAULT).toString())
 
         hostnameInput.doAfterTextChanged {
-            with(sharedPreferences.edit()) {
+            with(preferences.edit()) {
                 putString(Config.CONF_HTTP_HOSTNAME, it.toString())
                 apply()
                 Log.d("config", "Saved new Hostname: " + it.toString())
@@ -106,7 +94,7 @@ class MainActivity : Activity(), SensorEventListener {
         }
 
         portInput.doAfterTextChanged {
-            with(sharedPreferences.edit()) {
+            with(preferences.edit()) {
                 putInt(Config.CONF_HTTP_PORT, it.toString().toInt())
                 apply()
                 Log.d("config", "Saved new Port: " + it.toString())
@@ -115,14 +103,14 @@ class MainActivity : Activity(), SensorEventListener {
     }
 
     private fun initConfig() {
-        sharedPreferences = this.getPreferences(MODE_PRIVATE)
+        preferences = this.getSharedPreferences(packageName + "_preferences", MODE_PRIVATE)
 
-        with(sharedPreferences.edit()) {
-            if (!sharedPreferences.contains(Config.CONF_HTTP_HOSTNAME)) {
+        with(preferences.edit()) {
+            if (!preferences.contains(Config.CONF_HTTP_HOSTNAME)) {
                 putString(Config.CONF_HTTP_HOSTNAME, Config.CONF_HTTP_HOSTNAME_DEFAULT)
             }
 
-            if (!sharedPreferences.contains(Config.CONF_HTTP_PORT)) {
+            if (!preferences.contains(Config.CONF_HTTP_PORT)) {
                 putInt(Config.CONF_HTTP_PORT, Config.CONF_HTTP_PORT_DEFAULT)
             }
             apply()
@@ -130,57 +118,13 @@ class MainActivity : Activity(), SensorEventListener {
     }
 
     private fun startMeasure() {
-        val sensorRegistered: Boolean = mSensorManager.registerListener(
-            this,
-            mHeartRateSensor,
-            SensorManager.SENSOR_DELAY_FASTEST
-        )
-        Log.d("Sensor Status:", " Sensor registered: " + (if (sensorRegistered) "yes" else "no"))
+        Log.d("service", "Starting foreground heart rate service ...")
+        HeartRateService.startService(this)
     }
 
     private fun stopMeasure() {
-        mSensorManager.unregisterListener(this)
+        Log.d("service", "Stopping foreground heart rate service ...")
+        HeartRateService.stopService(this)
     }
 
-    override fun onSensorChanged(event: SensorEvent?) {
-        val mHeartRateFloat: Float = event!!.values[0]
-
-        val mHeartRate: Int = mHeartRateFloat.roundToInt()
-        textCurrentHr.text = resources.getString(R.string.text_current_hr, mHeartRate)
-        Log.d("HR: ", mHeartRate.toString())
-
-        sendHeartRate(mHeartRate)
-    }
-
-    override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {
-        // ignored
-    }
-
-    private fun sendHeartRate(heartrate: Int) {
-
-        val httpUrl = "http://" +
-                sharedPreferences.getString(Config.CONF_HTTP_HOSTNAME, Config.CONF_HTTP_HOSTNAME_DEFAULT) +
-                ":" + sharedPreferences.getInt(Config.CONF_HTTP_PORT, Config.CONF_HTTP_PORT_DEFAULT).toString()
-
-        val httpRequest = object : StringRequest(
-            Method.POST,
-            httpUrl,
-            { response -> Log.d("HTTP Reponse: ", response) },
-            { Log.e("HTTP Error", it.message.toString()) }
-        ) {
-            override fun getBodyContentType(): String {
-                return "application/x-www-form-urlencoded; charset=UTF-8"
-            }
-
-//            override fun getParams(): MutableMap<String, String> {
-//                return hashMapOf("rate" to heartrate.toString())
-//            }
-
-            override fun getBody(): ByteArray {
-                return ("rate=$heartrate").toByteArray(Charsets.UTF_8)
-            }
-        }
-
-        httpQueue.add(httpRequest)
-    }
 }

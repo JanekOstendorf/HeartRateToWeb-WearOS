@@ -16,4 +16,7 @@
     <string name="text_port_example">6547</string>
 
     <string name="text_current_hr">Current HR: %1$3d</string>
+    <string name="notification_title">HeartRate to OBS</string>
+    <string name="notification_text">Your heart rate is currently being sent to OBS.</string>
+    <string name="notification_channel_title">HeartRate to OBS</string>
 </resources>
