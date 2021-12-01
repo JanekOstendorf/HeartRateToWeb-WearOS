@@ -6,23 +6,22 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
-import android.os.IBinder
-import androidx.core.app.NotificationCompat
-import androidx.core.content.ContextCompat
-
 import android.content.SharedPreferences
 import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
+import android.os.IBinder
 import android.util.Log
+import androidx.core.app.NotificationCompat
+import androidx.core.content.ContextCompat
 import com.android.volley.RequestQueue
 import com.android.volley.request.StringRequest
 import com.android.volley.toolbox.Volley
 import kotlin.math.roundToInt
 
 
-class HeartRateService() : Service(), SensorEventListener {
+class HeartRateService : Service(), SensorEventListener {
 
     private lateinit var mHeartRateSensor: Sensor
     private lateinit var mSensorManager: SensorManager
@@ -91,6 +90,8 @@ class HeartRateService() : Service(), SensorEventListener {
         mSensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
         mHeartRateSensor = mSensorManager.getDefaultSensor(Sensor.TYPE_HEART_RATE)
 
+        startMeasure()
+
     }
 
     private fun startMeasure() {
@@ -110,7 +111,6 @@ class HeartRateService() : Service(), SensorEventListener {
         val mHeartRateFloat: Float = event!!.values[0]
 
         val mHeartRate: Int = mHeartRateFloat.roundToInt()
-        //textCurrentHr.text = resources.getString(R.string.text_current_hr, mHeartRate)
         Log.d("HR: ", mHeartRate.toString())
 
         sendHeartRate(mHeartRate)
@@ -123,8 +123,14 @@ class HeartRateService() : Service(), SensorEventListener {
     private fun sendHeartRate(heartrate: Int) {
 
         val httpUrl = "http://" +
-                preferences.getString(MainActivity.Config.CONF_HTTP_HOSTNAME, MainActivity.Config.CONF_HTTP_HOSTNAME_DEFAULT) +
-                ":" + preferences.getInt(MainActivity.Config.CONF_HTTP_PORT, MainActivity.Config.CONF_HTTP_PORT_DEFAULT).toString()
+                preferences.getString(
+                    MainActivity.Config.CONF_HTTP_HOSTNAME,
+                    MainActivity.Config.CONF_HTTP_HOSTNAME_DEFAULT
+                ) +
+                ":" + preferences.getInt(
+            MainActivity.Config.CONF_HTTP_PORT,
+            MainActivity.Config.CONF_HTTP_PORT_DEFAULT
+        ).toString()
 
         val httpRequest = object : StringRequest(
             Method.POST,
@@ -142,5 +148,10 @@ class HeartRateService() : Service(), SensorEventListener {
         }
 
         httpQueue.add(httpRequest)
+    }
+
+    override fun onDestroy() {
+        stopMeasure()
+        super.onDestroy()
     }
 }

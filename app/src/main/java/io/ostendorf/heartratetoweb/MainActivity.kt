@@ -2,13 +2,8 @@ package io.ostendorf.heartratetoweb
 
 import android.Manifest
 import android.app.Activity
-import android.content.Context
 import android.content.SharedPreferences
 import android.content.pm.PackageManager
-import android.hardware.Sensor
-import android.hardware.SensorEvent
-import android.hardware.SensorEventListener
-import android.hardware.SensorManager
 import android.os.Bundle
 import android.util.Log
 import android.widget.Button
@@ -16,11 +11,7 @@ import android.widget.EditText
 import android.widget.TextView
 import androidx.core.app.ActivityCompat
 import androidx.core.widget.doAfterTextChanged
-import com.android.volley.RequestQueue
-import com.android.volley.request.StringRequest
-import com.android.volley.toolbox.Volley
 import io.ostendorf.heartratetoweb.databinding.ActivityMainBinding
-import kotlin.math.roundToInt
 
 class MainActivity : Activity() {
 
@@ -32,6 +23,7 @@ class MainActivity : Activity() {
         const val CONF_HTTP_PORT_DEFAULT = 6547
     }
 
+    private lateinit var textCurrentHr: TextView
     private lateinit var binding: ActivityMainBinding
     //private lateinit var textCurrentHr: TextView
 
@@ -48,7 +40,8 @@ class MainActivity : Activity() {
         initConfig()
         bindConfigToInputs()
 
-        //textCurrentHr.text = resources.getString(R.string.text_current_hr, 0)
+        textCurrentHr = findViewById(R.id.textViewHeartRate)
+        textCurrentHr.text = resources.getString(R.string.text_current_hr, 0)
 
         if (ActivityCompat.checkSelfPermission(
                 this,
@@ -82,8 +75,15 @@ class MainActivity : Activity() {
         val hostnameInput = findViewById<EditText>(R.id.editTextHostname)
         val portInput = findViewById<EditText>(R.id.editTextPort)
 
-        hostnameInput.setText(preferences.getString(Config.CONF_HTTP_HOSTNAME, Config.CONF_HTTP_HOSTNAME_DEFAULT))
-        portInput.setText(preferences.getInt(Config.CONF_HTTP_PORT, Config.CONF_HTTP_PORT_DEFAULT).toString())
+        hostnameInput.setText(
+            preferences.getString(
+                Config.CONF_HTTP_HOSTNAME,
+                Config.CONF_HTTP_HOSTNAME_DEFAULT
+            )
+        )
+        portInput.setText(
+            preferences.getInt(Config.CONF_HTTP_PORT, Config.CONF_HTTP_PORT_DEFAULT).toString()
+        )
 
         hostnameInput.doAfterTextChanged {
             with(preferences.edit()) {
@@ -115,6 +115,10 @@ class MainActivity : Activity() {
             }
             apply()
         }
+    }
+
+    fun updateHeartRate(heartrate: Int) {
+        textCurrentHr.text = resources.getString(R.string.text_current_hr, heartrate)
     }
 
     private fun startMeasure() {
