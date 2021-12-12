@@ -2,7 +2,7 @@ package io.ostendorf.heartratetoweb
 
 import android.Manifest
 import android.app.Activity
-import android.content.SharedPreferences
+import android.content.*
 import android.content.pm.PackageManager
 import android.os.Bundle
 import android.util.Log
@@ -11,6 +11,7 @@ import android.widget.EditText
 import android.widget.TextView
 import androidx.core.app.ActivityCompat
 import androidx.core.widget.doAfterTextChanged
+import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import io.ostendorf.heartratetoweb.databinding.ActivityMainBinding
 
 class MainActivity : Activity() {
@@ -21,15 +22,27 @@ class MainActivity : Activity() {
 
         const val CONF_HTTP_HOSTNAME_DEFAULT = ""
         const val CONF_HTTP_PORT_DEFAULT = 6547
+
+        const val CONF_BROADCAST_HEARTRATE_UPDATE = "heartratetoweb.updateHeartRate"
+        const val CONF_BROADCAST_STATUS = "heartratetoweb.updateStatus"
+
+        const val CONF_SENDING_STATUS_OK = "ok"
+        const val CONF_SENDING_STATUS_ERROR = "error"
+        const val CONF_SENDING_STATUS_NOT_RUNNING = "not_running"
+        const val CONF_SENDING_STATUS_STARTING = "starting"
     }
 
+    private lateinit var textStatus: TextView
+    private lateinit var mStatusUpdateReceiver: BroadcastReceiver
     private lateinit var textCurrentHr: TextView
     private lateinit var binding: ActivityMainBinding
-    //private lateinit var textCurrentHr: TextView
+    private lateinit var startButton: Button
 
     private lateinit var preferences: SharedPreferences
 
     private var runningState: RunningState = RunningState.STOPPED
+
+    private lateinit var mHeartRateUpdateReceiver: BroadcastReceiver
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -41,7 +54,10 @@ class MainActivity : Activity() {
         bindConfigToInputs()
 
         textCurrentHr = findViewById(R.id.textViewHeartRate)
-        textCurrentHr.text = resources.getString(R.string.text_current_hr, 0)
+        updateHeartRate(0)
+
+        textStatus = findViewById(R.id.textViewStatus)
+        updateStatus(Config.CONF_SENDING_STATUS_NOT_RUNNING)
 
         if (ActivityCompat.checkSelfPermission(
                 this,
@@ -51,24 +67,55 @@ class MainActivity : Activity() {
             ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.BODY_SENSORS), 100)
         }
 
+        startButton = findViewById(R.id.buttonStartStop)
+
         wireButton()
+
+        mHeartRateUpdateReceiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context?, intent: Intent?) {
+                if (intent?.hasExtra("heartrate") == true) {
+                    updateHeartRate(intent.getIntExtra("heartrate", 0))
+                }
+            }
+        }
+
+        mStatusUpdateReceiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context?, intent: Intent?) {
+                if (intent?.hasExtra("status") == true) {
+                    updateStatus(intent.getStringExtra("status"))
+                }
+            }
+        }
+
+        registerBroadcastReceivers()
 
     }
 
-    private fun wireButton() {
-        val buttonInput = findViewById<Button>(R.id.buttonStartStop)
 
-        buttonInput.setOnClickListener {
+    private fun wireButton() {
+
+        startButton.setOnClickListener {
             if (runningState == RunningState.STOPPED) {
                 runningState = RunningState.RUNNING
-                buttonInput.setText(R.string.button_stop)
                 startMeasure()
             } else if (runningState == RunningState.RUNNING) {
                 runningState = RunningState.STOPPED
-                buttonInput.setText(R.string.button_start)
                 stopMeasure()
             }
+
+            updateButtonText()
         }
+    }
+
+    private fun updateButtonText() {
+
+        if (runningState == RunningState.STOPPED) {
+            startButton.setText(R.string.button_start)
+        } else if (runningState == RunningState.RUNNING) {
+            startButton.setText(R.string.button_stop)
+        }
+
+        startButton.invalidate()
     }
 
     private fun bindConfigToInputs() {
@@ -118,7 +165,25 @@ class MainActivity : Activity() {
     }
 
     fun updateHeartRate(heartrate: Int) {
+
+
         textCurrentHr.text = resources.getString(R.string.text_current_hr, heartrate)
+        textCurrentHr.invalidate()
+    }
+
+    private fun updateStatus(status: String?) {
+
+        val stringResource = when (status) {
+            Config.CONF_SENDING_STATUS_OK -> R.string.text_status_ok
+            Config.CONF_SENDING_STATUS_ERROR -> R.string.text_status_error
+            Config.CONF_SENDING_STATUS_NOT_RUNNING -> R.string.text_status_not_running
+            Config.CONF_SENDING_STATUS_STARTING -> R.string.text_status_starting
+            else -> R.string.text_status_unknown
+        }
+
+        textStatus.text =
+            resources.getString(R.string.text_status, resources.getString(stringResource))
+        textStatus.invalidate()
     }
 
     private fun startMeasure() {
@@ -131,4 +196,28 @@ class MainActivity : Activity() {
         HeartRateService.stopService(this)
     }
 
+    private fun registerBroadcastReceivers() {
+        LocalBroadcastManager.getInstance(this).registerReceiver(
+            mHeartRateUpdateReceiver,
+            IntentFilter(Config.CONF_BROADCAST_HEARTRATE_UPDATE)
+        )
+        LocalBroadcastManager.getInstance(this)
+            .registerReceiver(mStatusUpdateReceiver, IntentFilter(Config.CONF_BROADCAST_STATUS))
+    }
+
+    private fun unregisterBroadcastReceivers() {
+        LocalBroadcastManager.getInstance(this).unregisterReceiver(mHeartRateUpdateReceiver)
+        LocalBroadcastManager.getInstance(this).unregisterReceiver(mStatusUpdateReceiver)
+    }
+
+    override fun onPause() {
+        unregisterBroadcastReceivers()
+        super.onPause()
+    }
+
+    override fun onResume() {
+        registerBroadcastReceivers()
+        updateButtonText()
+        super.onResume()
+    }
 }

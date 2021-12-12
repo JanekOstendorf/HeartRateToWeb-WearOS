@@ -15,6 +15,7 @@ import android.os.IBinder
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
+import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import com.android.volley.RequestQueue
 import com.android.volley.request.StringRequest
 import com.android.volley.toolbox.Volley
@@ -27,6 +28,7 @@ class HeartRateService : Service(), SensorEventListener {
     private lateinit var mSensorManager: SensorManager
     private lateinit var httpQueue: RequestQueue
     private lateinit var preferences: SharedPreferences
+
     private val CHANNEL_ID = "HeartRateService"
 
     companion object {
@@ -101,10 +103,12 @@ class HeartRateService : Service(), SensorEventListener {
             SensorManager.SENSOR_DELAY_FASTEST
         )
         Log.d("Sensor Status:", " Sensor registered: " + (if (sensorRegistered) "yes" else "no"))
+        sendStatusToActivity(MainActivity.Config.CONF_SENDING_STATUS_STARTING)
     }
 
     private fun stopMeasure() {
         mSensorManager.unregisterListener(this)
+        sendStatusToActivity(MainActivity.Config.CONF_SENDING_STATUS_NOT_RUNNING)
     }
 
     override fun onSensorChanged(event: SensorEvent?) {
@@ -114,6 +118,7 @@ class HeartRateService : Service(), SensorEventListener {
         Log.d("HR: ", mHeartRate.toString())
 
         sendHeartRate(mHeartRate)
+        sendHeartRateToActivity(mHeartRate)
     }
 
     override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {
@@ -135,8 +140,14 @@ class HeartRateService : Service(), SensorEventListener {
         val httpRequest = object : StringRequest(
             Method.POST,
             httpUrl,
-            { response -> Log.d("HTTP Reponse: ", response) },
-            { Log.e("HTTP Error", it.message.toString()) }
+            { response ->
+                Log.d("HTTP Reponse: ", response)
+                sendStatusToActivity(MainActivity.Config.CONF_SENDING_STATUS_OK)
+            },
+            {
+                Log.e("HTTP Error", it.message.toString())
+                sendStatusToActivity(MainActivity.Config.CONF_SENDING_STATUS_ERROR)
+            }
         ) {
             override fun getBodyContentType(): String {
                 return "application/x-www-form-urlencoded; charset=UTF-8"
@@ -153,5 +164,17 @@ class HeartRateService : Service(), SensorEventListener {
     override fun onDestroy() {
         stopMeasure()
         super.onDestroy()
+    }
+
+    private fun sendHeartRateToActivity(heartrate: Int) {
+        val intent = Intent(MainActivity.Config.CONF_BROADCAST_HEARTRATE_UPDATE)
+        intent.putExtra("heartrate", heartrate)
+        LocalBroadcastManager.getInstance(this).sendBroadcast(intent)
+    }
+
+    private fun sendStatusToActivity(status: String) {
+        val intent = Intent(MainActivity.Config.CONF_BROADCAST_STATUS)
+        intent.putExtra("status", status)
+        LocalBroadcastManager.getInstance(this).sendBroadcast(intent)
     }
 }

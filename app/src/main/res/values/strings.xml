@@ -15,7 +15,15 @@
     <string name="text_port">Port</string>
     <string name="text_port_example">6547</string>
 
-    <string name="text_current_hr">Current HR: %1$3d</string>
+    <string name="text_current_hr">Current HR: %03d</string>
+
+    <string name="text_status">Status: %1s</string>
+    <string name="text_status_ok">OK</string>
+    <string name="text_status_error">Error</string>
+    <string name="text_status_not_running">Not running</string>
+    <string name="text_status_starting">Starting …</string>
+    <string name="text_status_unknown">Unknown</string>
+
     <string name="notification_title">HeartRate to OBS</string>
     <string name="notification_text">Your heart rate is currently being sent to OBS.</string>
     <string name="notification_channel_title">HeartRate to OBS</string>
